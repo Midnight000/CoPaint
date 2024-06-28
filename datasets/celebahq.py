@@ -60,7 +60,7 @@ def load_lama_celebahq(
     gt_paths.sort()
 
     def load_image(path): return normalize(Image.open(path), shape=shape)
-    if mask_type not in ["narrow", "wide"]:
+    if mask_type in ["narrow", "wide"]:
         # simple masks
         mask_generator = mask_generators[mask_type]
 

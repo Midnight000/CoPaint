@@ -50,7 +50,7 @@ def load_imagenet(
     for k, v in rawlabels.items():
         k = k.replace("_val_", "_test_")
         labels[k] = v
-    if mask_type not in ["narrow", "wide"]:
+    if mask_type in ["narrow", "wide"]:
         # simple masks
         mask_generator = mask_generators[mask_type]
 

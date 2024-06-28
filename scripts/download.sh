@@ -1,20 +1,7 @@
 #!/bin/bash
 
-(
-# download pretrained models
-mkdir -p checkpoints
-cd checkpoints
-
-# model pretrained on ImageNet
-wget https://openaipublic.blob.core.windows.net/diffusion/jul-2021/256x256_classifier.pt # Trained by OpenAI
-wget https://openaipublic.blob.core.windows.net/diffusion/jul-2021/256x256_diffusion.pt  # Trained by OpenAI
-wget https://openaipublic.blob.core.windows.net/diffusion/jul-2021/512x512_classifier.pt
-wget https://openaipublic.blob.core.windows.net/diffusion/jul-2021/512x512_diffusion.pt
 
 # model pretrained on CelebA
-gdown https://drive.google.com/uc?id=1norNWWGYP3EZ_o05DmoW1ryKuKMmhlCX
-)
-
 prepare_celeba() {
     # Copied from [Lama](https://github.com/saic-mdal/lama)
     BASENAME="lama-celeba"
@@ -49,7 +36,6 @@ mkdir -p datasets
 cd datasets
 # cd datasets
 # celeba data
-gdown https://drive.google.com/uc?id=1O89DVCoWsMhrIF3G8-wMOJ0h7LukmMdP
 sleep 1
 prepare_celeba
 rm data256x256.zip

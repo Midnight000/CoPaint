@@ -123,6 +123,7 @@ def main():
     ###################################################################################
     config = Config(default_config_file="configs/celebahq.yaml", use_argparse=True)
     config.show()
+    torch.cuda.set_device(config.device)
 
     all_paths = get_all_paths(config.outdir)
     config.dump(all_paths["path_config"])

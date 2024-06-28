@@ -15,7 +15,7 @@ dataset_ending_index: -1 # specify the ending index, -1 means len(dataset)
 mask_type: half
 seed: 42
 use_git: false
-n_samples: 10
+n_samples: 1
 n_iter: 1
 outdir: ./images/celeba-hq
 algorithm: o_ddim
@@ -23,6 +23,7 @@ resume: false # will load previous results if there are some
 mode: inpaint
 scale: 0
 debug: false
+device: 3
 
 ########################################################################
 ## algorithm specific configs
