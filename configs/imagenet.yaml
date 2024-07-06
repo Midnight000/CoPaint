@@ -23,6 +23,8 @@ algorithm: o_ddim
 resume: false # will load previous results if there are some
 mode: inpaint
 debug: false
+missing_info: true
+device: 3
 
 
 ########################################################################

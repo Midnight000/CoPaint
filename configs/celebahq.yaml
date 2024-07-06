@@ -23,7 +23,8 @@ resume: false # will load previous results if there are some
 mode: inpaint
 scale: 0
 debug: false
-device: 3
+missing_info: true
+device: 0
 
 ########################################################################
 ## algorithm specific configs
