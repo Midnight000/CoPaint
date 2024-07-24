@@ -1273,7 +1273,7 @@ class Test_DDIMSampler(DDIMSampler):
             return LPIPS_func.forward(_x0 * _mask + _pred_x0 * (1 - _mask), _pred_x0)
         SSIM_func = SSIM()
         def loss_SSIM(x0, _pred_x0, _mask):
-            return 1-SSIM_func.forward(x0 * _mask, _pred_x0 * _mask)
+            return SSIM_func.forward(x0 * _mask + (1 - _mask) * _pred_x0, _pred_x0)
         self.loss_L2 = loss_L2
         self.loss_LPIPS = loss_LPIPS
         self.loss_SSIM = loss_SSIM
@@ -1465,16 +1465,16 @@ class Test_DDIMSampler(DDIMSampler):
             a=b=c=0
             c=1
             prev_loss = a * self.loss_L2(x0, pred_x0, mask) + b * self.loss_LPIPS(x0, pred_x0, mask) + c * self.loss_SSIM(x0, pred_x0, mask)
-            #directory = '/mnt/data/huang-lab/shipeng/celeb/ssim/half/reverse/' + str(model_kwargs["image_name"])
-            #make_dirs(directory)
-            #tmp_pred = pred_x0
-            #tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
-            #tmp_pred = tmp_pred.permute(0, 2, 3, 1)
-            #tmp_pred = tmp_pred.contiguous().squeeze()
-            #tmp_pred = tmp_pred.cpu().numpy()
-            #tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
-            #full_p2 = os.path.join(directory, 'pre' + '_' + str(index).zfill(6) + '.jpg')
-            #tmp_pred.save(full_p2)
+            directory = '/mnt/data/huang-lab/shipeng/celeb/ssim/half/reverse/' + str(model_kwargs["image_name"])
+            make_dirs(directory)
+            tmp_pred = pred_x0
+            tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
+            tmp_pred = tmp_pred.permute(0, 2, 3, 1)
+            tmp_pred = tmp_pred.contiguous().squeeze()
+            tmp_pred = tmp_pred.cpu().numpy()
+            tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
+            full_p2 = os.path.join(directory, 'pre' + '_' + str(index).zfill(6) + '.jpg')
+            tmp_pred.save(full_p2)
             logging_info(f"step: {t[0].item()} lr_xt {lr_xt:.8f}")
             for step in range(self.num_iteration_optimize_xt):
                 loss = a * self.loss_L2(x0, pred_x0, mask) + b * self.loss_LPIPS(x0, pred_x0, mask) + c * self.loss_SSIM(x0, pred_x0, mask) + coef_xt_reg * reg_fn(origin_x, x)
@@ -1530,9 +1530,8 @@ class Test_DDIMSampler(DDIMSampler):
                 e_t,
                 _pred_x0=pred_x0 if self.mid_interval_num == 1 else None,
             )
-        alpha_prev = _extract_into_tensor(self.alphas_cumprod, t-1, x0.shape) 
-        gt_t = x0 * torch.sqrt(alpha_prev) + torch.sqrt(1 - alpha_prev) * torch.randn_like(x0)
-        return {"x": x, "x_prev_overwrite": x_prev * (1-mask) + gt_t * mask, "x_prev": x_prev, "pred_x0": pred_x0, "loss": new_loss}
+
+        return {"x": x, "x_prev": x_prev, "pred_x0": pred_x0, "loss": new_loss}
 
     def p_sample_loop(
         self,
@@ -1608,10 +1607,7 @@ class Test_DDIMSampler(DDIMSampler):
                     coef_xt_reg=coef_xt_reg,
 					index=index,
                 )
-                if conf["overwrite"]:
-                    x_t = output["x_prev_overwrite"]
-                else:
-                    x_t = output["x_prev"]
+                x_t = output["x_prev"]
                 loss = output["loss"]
 
                 # lr decay

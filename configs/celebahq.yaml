@@ -25,6 +25,8 @@ scale: 0
 debug: false
 missing_info: true
 device: 0
+loss: LPIPS
+overwrite: false
 
 ########################################################################
 ## algorithm specific configs

@@ -15,7 +15,8 @@ from guided_diffusion import (
     DDNMSampler,
     DDRMSampler,
     DPSSampler,
-    Info_O_DDIMSampler
+    Info_O_DDIMSampler,
+    Test_DDIMSampler
 )
 from guided_diffusion import dist_util
 from guided_diffusion.ddim import R_DDIMSampler
@@ -50,6 +51,7 @@ def prepare_model(algorithm, conf, device):
         "ddrm": DDRMSampler,
         "dps": DPSSampler,
         "info_o_ddim": Info_O_DDIMSampler,
+        "test": Test_DDIMSampler,
     }
     sampler_cls = SAMPLER_CLS[algorithm]
     sampler = create_gaussian_diffusion(
@@ -185,7 +187,7 @@ def main():
     logging_info("Start sampling")
     timer, num_image = Timer(), 0
     batch_size = config.n_samples
-
+    counter = 0
     for data in tqdm(datas):
         if config.class_cond:
             image, mask, image_name, class_id = data
@@ -203,6 +205,7 @@ def main():
         # prepare batch data for processing
         batch = {"image": image.to(device), "mask": mask.to(device)}
         model_kwargs = {
+            "image_name":image_name,
             "gt": batch["image"].repeat(batch_size, 1, 1, 1),
             "gt_keep_mask": batch["mask"].repeat(batch_size, 1, 1, 1),
         }
