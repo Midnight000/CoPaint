@@ -1502,8 +1502,8 @@ class Test_DDIMSampler(DDIMSampler):
 
                 logging_info(
                     f"grad norm: {torch.norm(x_grad_L2, p=2).item():.3f} "
-                    f"{torch.norm(x_grad_L2 * mask, p=2).item():.3f} "
-                    f"{torch.norm(x_grad_L2 * (1. - mask), p=2).item():.3f}"
+                    f"{torch.norm(x_grad_LPIPS * mask, p=2).item():.3f} "
+                    f"{torch.norm(x_grad_SSIM * (1. - mask), p=2).item():.3f}"
                 )
 
                 while self.use_adaptive_lr_xt and True:
