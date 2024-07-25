@@ -61,6 +61,7 @@ optimize_xt:
   weight_LPIPS: 0.5
   weight_SSIM: 0
 
+
 repaint:
   schedule_jump_params:
     t_T: 250
