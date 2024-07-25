@@ -1473,9 +1473,9 @@ class Test_DDIMSampler(DDIMSampler):
             pred_x0 = get_predx0(
                 _x=x, _t=t, _et=e_t, interval_num=self.mid_interval_num
             )
-            a=b=c=0
-            a=0.5
-            b=0.5
+            a=weight_L2
+            b=weight_LPIPS
+            c=weight_SSIM
             prev_loss = a * self.loss_L2(x0, pred_x0, mask) + b * self.loss_LPIPS(x0, pred_x0, mask) + c * self.loss_SSIM(x0, pred_x0, mask)
             #directory = '/mnt/data/huang-lab/shipeng/celeb/ssim/half/reverse/' + str(model_kwargs["image_name"])
             #make_dirs(directory)
