@@ -1291,7 +1291,11 @@ class Test_DDIMSampler(DDIMSampler):
         denoised_fn=None,
         cond_fn=None,
         index=0,
+        weight_L2=1,
+        weight_LPIPS=0,
+        weight_SSIM=0,
         **kwargs,
+
     ):
         if self.mode == "inpaint":
             if self.loss == "L2":    
@@ -1433,13 +1437,13 @@ class Test_DDIMSampler(DDIMSampler):
         x0 = model_kwargs["gt"]
         mask = model_kwargs["gt_keep_mask"]
 
-        def grad_norm(L2, lpips, ssim):
+        def grad_norm(L2, LPIPS, SSIM):
             norm_L2 = torch.norm(L2, p=2).item()
-            norm_ssim = torch.norm(ssim, p=2).item()
-            norm_lpips = torch.norm(lpips, p=2).item()
-            ssim = norm_L2 / norm_ssim * ssim
-            lpips = norm_L2 / norm_lpips * lpips
-            return L2, lpips, ssim
+            norm_SSIM = torch.norm(SSIM, p=2).item()
+            norm_LPIPS = torch.norm(LPIPS, p=2).item()
+            SSIM = norm_L2 / norm_SSIM * SSIM
+            LPIPS = norm_L2 / norm_LPIPS * LPIPS
+            return L2, LPIPS, SSIM
         # condition mean
         if cond_fn is not None:
             model_fn = self._wrap_model(model_fn)
@@ -1488,12 +1492,12 @@ class Test_DDIMSampler(DDIMSampler):
                 loss_L2 = self.loss_L2(x0, pred_x0, mask)
                 loss_LPIPS = self.loss_LPIPS(x0, pred_x0, mask)
                 loss_SSIM = self.loss_SSIM(x0, pred_x0, mask) + coef_xt_reg * reg_fn(origin_x, x)
-                loss = a * self.loss_L2(x0, pred_x0, mask) + b * self.loss_LPIPS(x0, pred_x0, mask) + c * self.loss_SSIM(x0, pred_x0, mask)
+                loss = a * loss_L2 + b * loss_LPIPS + c * loss_SSIM
                 x_grad_L2 = torch.autograd.grad(
-                    loss_L2, x, retain_graph=False, create_graph=False
+                    loss_L2, x, retain_graph=True, create_graph=False
                 )[0].detach()
                 x_grad_LPIPS = torch.autograd.grad(
-                    loss_LPIPS, x, retain_graph=False, create_graph=False
+                    loss_LPIPS, x, retain_graph=True, create_graph=False
                 )[0].detach()
                 x_grad_SSIM = torch.autograd.grad(
                     loss_SSIM, x, retain_graph=False, create_graph=False
@@ -1625,6 +1629,9 @@ class Test_DDIMSampler(DDIMSampler):
                     lr_xt=lr_xt,
                     coef_xt_reg=coef_xt_reg,
 					index=index,
+                    weight_L2 = conf["optimize_xt.weight_L2"],
+                    weight_LPIPS=conf["optimize_xt.weight_LPIPS"],
+                    weight_SSIM=conf["optimize_xt.weight_SSIM"],
                 )
                 if conf["overwrite"]:
                     x_t = output["x_prev_overwrite"]
