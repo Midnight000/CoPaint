@@ -1491,8 +1491,9 @@ class Test_DDIMSampler(DDIMSampler):
             for step in range(self.num_iteration_optimize_xt):
                 loss_L2 = self.loss_L2(x0, pred_x0, mask)
                 loss_LPIPS = self.loss_LPIPS(x0, pred_x0, mask)
-                loss_SSIM = self.loss_SSIM(x0, pred_x0, mask) + coef_xt_reg * reg_fn(origin_x, x)
-                loss = a * loss_L2 + b * loss_LPIPS + c * loss_SSIM
+                loss_SSIM = self.loss_SSIM(x0, pred_x0, mask)
+                loss_P = coef_xt_reg * reg_fn(origin_x, x)
+                loss = a * loss_L2 + b * loss_LPIPS + c * loss_SSIM + loss_P
                 x_grad_L2 = torch.autograd.grad(
                     loss_L2, x, retain_graph=True, create_graph=False
                 )[0].detach()
@@ -1500,10 +1501,13 @@ class Test_DDIMSampler(DDIMSampler):
                     loss_LPIPS, x, retain_graph=True, create_graph=False
                 )[0].detach()
                 x_grad_SSIM = torch.autograd.grad(
-                    loss_SSIM, x, retain_graph=False, create_graph=False
+                    loss_SSIM, x, retain_graph=True, create_graph=False
+                )[0].detach()
+                x_grad_P = torch.autograd.grad(
+                    loss_P, x, retain_graph=False, create_graph=False
                 )[0].detach()
                 x_grad_L2, x_grad_LPIPS, x_grad_SSIM = grad_norm(L2=x_grad_L2, LPIPS=x_grad_LPIPS, SSIM=x_grad_SSIM)
-                new_x = x - lr_xt * (x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c)
+                new_x = x - lr_xt * (x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P)
 
                 logging_info(
                     f"grad norm: {torch.norm(x_grad_L2, p=2).item():.3f} "
@@ -1527,7 +1531,7 @@ class Test_DDIMSampler(DDIMSampler):
                                 % (loss.item(), new_loss.item(), lr_xt)
                             )
                             del new_x, e_t, pred_x0, new_loss
-                            new_x = x - lr_xt * (x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c)
+                            new_x = x - lr_xt * (x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P)
 
                 x = new_x.detach().requires_grad_()
                 e_t = get_et(x, _t=t)
