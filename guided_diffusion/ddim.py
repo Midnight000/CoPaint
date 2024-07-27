@@ -751,6 +751,7 @@ class O_DDIMSampler(DDIMSampler):
                     pred_xstart=None,
                     lr_xt=lr_xt,
                     coef_xt_reg=coef_xt_reg,
+                    index=index,
                 )
                 x_t = output["x_prev"]
                 loss = output["loss"]
@@ -1180,6 +1181,7 @@ class Info_O_DDIMSampler(DDIMSampler):
                     pred_xstart=None,
                     lr_xt=lr_xt,
                     coef_xt_reg=coef_xt_reg,
+                    index=index,
                 )
                 x_t = output["x_prev"]
                 loss = output["loss"]
