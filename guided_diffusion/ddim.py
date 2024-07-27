@@ -1511,6 +1511,14 @@ class Test_DDIMSampler(DDIMSampler):
             tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
             full_p2 = os.path.join(directory, 'pre' + '_' + str(index).zfill(6) + '.jpg')
             tmp_pred.save(full_p2)
+            tmp_pred = origin_x
+            tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
+            tmp_pred = tmp_pred.permute(0, 2, 3, 1)
+            tmp_pred = tmp_pred.contiguous().squeeze()
+            tmp_pred = tmp_pred.cpu().numpy()
+            tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
+            full_p2 = os.path.join(directory, 'x' + '_' + str(index).zfill(6) + '.jpg')
+            tmp_pred.save(full_p2)
             logging_info(f"step: {t[0].item()} lr_xt {lr_xt:.8f}")
             for step in range(self.num_iteration_optimize_xt):
                 loss_L2 = self.loss_L2(x0, pred_x0, mask)
