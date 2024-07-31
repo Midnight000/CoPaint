@@ -609,7 +609,7 @@ class O_DDIMSampler(DDIMSampler):
                 _x=x, _t=t, _et=e_t, interval_num=self.mid_interval_num
             )
             prev_loss = loss_fn(x0, pred_x0, mask).item()
-            directory = '/mnt/data/huang-lab/shipeng/celeb/ssim/half/reverse/' + str(model_kwargs["image_name"])
+            directory = '/mnt/data/huang-lab/shipeng/celeb/copaint_copy/half/reverse/pred' + str(model_kwargs["image_name"])
             make_dirs(directory)
             tmp_pred = pred_x0
             tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
@@ -618,6 +618,16 @@ class O_DDIMSampler(DDIMSampler):
             tmp_pred = tmp_pred.cpu().numpy()
             tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
             full_p2 = os.path.join(directory, 'pre' + '_' + str(index).zfill(6) + '.jpg')
+            tmp_pred.save(full_p2)
+            directory = '/mnt/data/huang-lab/shipeng/celeb/copaint_copy/half/reverse/x' + str(model_kwargs["image_name"])
+            make_dirs(directory)
+            tmp_pred = origin_x
+            tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
+            tmp_pred = tmp_pred.permute(0, 2, 3, 1)
+            tmp_pred = tmp_pred.contiguous().squeeze()
+            tmp_pred = tmp_pred.cpu().numpy()
+            tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
+            full_p2 = os.path.join(directory, 'x' + '_' + str(index).zfill(6) + '.jpg')
             tmp_pred.save(full_p2)
             logging_info(f"step: {t[0].item()} lr_xt {lr_xt:.8f}")
             for step in range(self.num_iteration_optimize_xt):
@@ -1039,7 +1049,7 @@ class Info_O_DDIMSampler(DDIMSampler):
                 _x=x, _t=t, _et=e_t, interval_num=self.mid_interval_num
             )
             prev_loss = loss_fn(x0, pred_x0, mask).item()
-            directory = '/mnt/data/huang-lab/shipeng/celeb/ssim/half/reverse/' + str(model_kwargs["image_name"])
+            directory = '/mnt/data/huang-lab/shipeng/celeb/copaint_copy/half/reverse/pred' + str(model_kwargs["image_name"])
             make_dirs(directory)
             tmp_pred = pred_x0
             tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
@@ -1048,6 +1058,16 @@ class Info_O_DDIMSampler(DDIMSampler):
             tmp_pred = tmp_pred.cpu().numpy()
             tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
             full_p2 = os.path.join(directory, 'pre' + '_' + str(index).zfill(6) + '.jpg')
+            tmp_pred.save(full_p2)
+            directory = '/mnt/data/huang-lab/shipeng/celeb/copaint_copy/half/reverse/x' + str(model_kwargs["image_name"])
+            make_dirs(directory)
+            tmp_pred = origin_x
+            tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
+            tmp_pred = tmp_pred.permute(0, 2, 3, 1)
+            tmp_pred = tmp_pred.contiguous().squeeze()
+            tmp_pred = tmp_pred.cpu().numpy()
+            tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
+            full_p2 = os.path.join(directory, 'x' + '_' + str(index).zfill(6) + '.jpg')
             tmp_pred.save(full_p2)
             logging_info(f"step: {t[0].item()} lr_xt {lr_xt:.8f}")
             for step in range(self.num_iteration_optimize_xt):
@@ -1501,7 +1521,7 @@ class Test_DDIMSampler(DDIMSampler):
             b=weight_LPIPS
             c=weight_SSIM
             prev_loss = a * self.loss_L2(x0, pred_x0, mask) + b * self.loss_LPIPS(x0, pred_x0, mask) + c * self.loss_SSIM(x0, pred_x0, mask)
-            directory = '/mnt/data/huang-lab/shipeng/celeb/ssim/half/reverse/' + str(model_kwargs["image_name"])
+            directory = '/mnt/data/huang-lab/shipeng/celeb/lpips/half/reverse/pred' + str(model_kwargs["image_name"])
             make_dirs(directory)
             tmp_pred = pred_x0
             tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
@@ -1511,6 +1531,8 @@ class Test_DDIMSampler(DDIMSampler):
             tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
             full_p2 = os.path.join(directory, 'pre' + '_' + str(index).zfill(6) + '.jpg')
             tmp_pred.save(full_p2)
+            directory = '/mnt/data/huang-lab/shipeng/celeb/lpips/half/reverse/x' + str(model_kwargs["image_name"])
+            make_dirs(directory)
             tmp_pred = origin_x
             tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
             tmp_pred = tmp_pred.permute(0, 2, 3, 1)
@@ -1526,6 +1548,9 @@ class Test_DDIMSampler(DDIMSampler):
                 loss_SSIM = self.loss_SSIM(x0, pred_x0, mask)
                 loss_P = coef_xt_reg * reg_fn(origin_x, x)
                 loss = a * loss_L2 + b * loss_LPIPS + c * loss_SSIM + loss_P
+                x_grad_P = torch.autograd.grad(
+                    loss_P, x, retain_graph=True, create_graph=False
+                )[0].detach()
                 x_grad_L2 = torch.autograd.grad(
                     loss_L2, x, retain_graph=True, create_graph=False
                 )[0].detach()
@@ -1533,10 +1558,7 @@ class Test_DDIMSampler(DDIMSampler):
                     loss_LPIPS, x, retain_graph=True, create_graph=False
                 )[0].detach()
                 x_grad_SSIM = torch.autograd.grad(
-                    loss_SSIM, x, retain_graph=True, create_graph=False
-                )[0].detach()
-                x_grad_P = torch.autograd.grad(
-                    loss_P, x, retain_graph=False, create_graph=False
+                    loss_SSIM, x, retain_graph=False, create_graph=False
                 )[0].detach()
                 x_grad_L2, x_grad_LPIPS, x_grad_SSIM = grad_norm(L2=x_grad_L2, LPIPS=x_grad_LPIPS, SSIM=x_grad_SSIM)
                 new_x = x - lr_xt * (x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P)
