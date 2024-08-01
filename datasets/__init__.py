@@ -1,4 +1,4 @@
-from .celebahq import load_celebahq, load_lama_celebahq
+from .celebahq import load_celebahq, load_lama_celebahq, load_test
 from .imagenet import load_imagenet
 
 

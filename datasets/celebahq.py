@@ -91,3 +91,48 @@ def load_lama_celebahq(
         )
         res = [load_image_mask_name(i) for i in range(offset, offset + max_len)]
     return res
+
+def load_test(
+    offset=0,
+    max_len=100,
+    shape=(256, 256),
+    mask_type="half",
+):
+    """Load first 100 images in lama celeba test set"""
+    gt_dir = os.path.join(
+        os.getcwd(), "./datasets/test/")
+    gt_paths = _list_image_files_recursively(gt_dir)
+    gt_paths.sort()
+
+    def load_image(path): return normalize(Image.open(path), shape=shape)
+    if mask_type in ["narrow", "wide"]:
+        # simple masks
+        mask_generator = mask_generators[mask_type]
+
+        def load_image_mask_name(path): return (
+            load_image(path),
+            mask_generator(shape),
+            "%05d" % int(os.path.splitext(os.path.basename(path))[0]),
+        )
+        res = [
+            load_image_mask_name(path) for path in gt_paths[offset: offset + max_len]
+        ]
+    else:
+        mask_dir = os.path.join(
+            os.getcwd(), f"datasets/Repaint_mask/{mask_type}")
+        mask_paths = _list_image_files_recursively(mask_dir)
+        mask_paths.sort()
+
+        def load_mask(path): return torch.from_numpy(
+            np.array(Image.open(path).resize(
+                shape).convert("L"), dtype=np.float32)
+            / 255.0,
+        )
+
+        def load_image_mask_name(i): return (
+            load_image(gt_paths[i]),
+            load_mask(mask_paths[i]),
+            "%05d" % int(os.path.splitext(os.path.basename(gt_paths[i]))[0]),
+        )
+        res = [load_image_mask_name(i) for i in range(offset, offset + max_len)]
+    return res

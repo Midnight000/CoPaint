@@ -7,7 +7,7 @@ from sklearn.neighbors import NearestNeighbors
 from tqdm import tqdm
 from PIL import Image
 
-from datasets import load_lama_celebahq, load_imagenet
+from datasets import load_lama_celebahq, load_imagenet, load_test
 from datasets.utils import normalize
 from guided_diffusion import (
     DDIMSampler,
@@ -100,6 +100,8 @@ def prepare_data(
         datas = load_imagenet(mask_type=mask_type, shape=(128, 128))
     elif dataset_name == "imagenet512":
         datas = load_imagenet(mask_type=mask_type, shape=(512, 512))
+    elif dataset_name == "celeb_test":
+        datas = load_test(mask_type=mask_type)
     else:
         raise NotImplementedError
 
