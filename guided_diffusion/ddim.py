@@ -1338,8 +1338,9 @@ class Test_DDIMSampler(DDIMSampler):
         weight_L2=1,
         weight_LPIPS=0,
         weight_SSIM=0,
+        grad_previous=None,
+        grad_previous_max=10,
         **kwargs,
-
     ):
         if self.mode == "inpaint":
             if self.loss == "L2":    
@@ -1485,6 +1486,8 @@ class Test_DDIMSampler(DDIMSampler):
             norm_L2 = torch.norm(L2, p=2).item()
             norm_SSIM = torch.norm(SSIM, p=2).item()
             norm_LPIPS = torch.norm(LPIPS, p=2).item()
+            if norm_L2 == 0:
+                return L2, LPIPS, SSIM
             SSIM = norm_L2 / norm_SSIM * SSIM
             LPIPS = norm_L2 / norm_LPIPS * LPIPS
             return L2, LPIPS, SSIM
@@ -1542,6 +1545,9 @@ class Test_DDIMSampler(DDIMSampler):
             full_p2 = os.path.join(directory, 'x' + '_' + str(index).zfill(6) + '.jpg')
             tmp_pred.save(full_p2)
             logging_info(f"step: {t[0].item()} lr_xt {lr_xt:.8f}")
+            grad_pre_total = torch.zeros_like(x)
+            for grad_tmp in grad_previous:
+                grad_pre_total += grad_tmp / len(grad_previous)
             for step in range(self.num_iteration_optimize_xt):
                 loss_L2 = self.loss_L2(x0, pred_x0, mask)
                 loss_LPIPS = self.loss_LPIPS(x0, pred_x0, mask)
@@ -1561,7 +1567,7 @@ class Test_DDIMSampler(DDIMSampler):
                     loss_SSIM, x, retain_graph=False, create_graph=False
                 )[0].detach()
                 x_grad_L2, x_grad_LPIPS, x_grad_SSIM = grad_norm(L2=x_grad_L2, LPIPS=x_grad_LPIPS, SSIM=x_grad_SSIM)
-                new_x = x - lr_xt * (x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P)
+                new_x = x - lr_xt * ((x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P) * 0.5 + grad_pre_total * 0.5)
 
                 logging_info(
                     f"grad norm: {torch.norm(x_grad_L2, p=2).item():.3f} "
@@ -1585,13 +1591,18 @@ class Test_DDIMSampler(DDIMSampler):
                                 % (loss.item(), new_loss.item(), lr_xt)
                             )
                             del new_x, e_t, pred_x0, new_loss
-                            new_x = x - lr_xt * (x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P)
+                            new_x = x - lr_xt * ((x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P) + grad_pre_total * 0.5)
 
                 x = new_x.detach().requires_grad_()
                 e_t = get_et(x, _t=t)
                 pred_x0 = get_predx0(
                     x, _t=t, _et=e_t, interval_num=self.mid_interval_num
                 )
+                if step == self.num_iteration_optimize_xt - 1:
+                    if grad_previous_max == len(grad_previous):
+                        grad_previous.remove()
+                    if grad_previous_max != 0:
+                        grad_previous.append(x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P)
                 del loss, x_grad_L2, x_grad_LPIPS, x_grad_SSIM
                 torch.cuda.empty_cache()
 
@@ -1612,7 +1623,7 @@ class Test_DDIMSampler(DDIMSampler):
             )
         alpha_prev = _extract_into_tensor(self.alphas_cumprod, t-1, x0.shape) 
         gt_t = x0 * torch.sqrt(alpha_prev) + torch.sqrt(1 - alpha_prev) * torch.randn_like(x0)
-        return {"x": x, "x_prev_overwrite": x_prev * (1-mask) + gt_t * mask, "x_prev": x_prev, "pred_x0": pred_x0, "loss": new_loss}
+        return {"x": x, "x_prev_overwrite": x_prev * (1-mask) + gt_t * mask, "x_prev": x_prev, "pred_x0": pred_x0, "loss": new_loss, "grad_previous": grad_previous}
 
     def p_sample_loop(
         self,
@@ -1669,7 +1680,7 @@ class Test_DDIMSampler(DDIMSampler):
         lr_xt = self.lr_xt
         coef_xt_reg = self.coef_xt_reg
         loss = None
-
+        grad_previous = []
         status = None
         for cur_t, prev_t in tqdm(time_pairs):
             index += 1
@@ -1690,13 +1701,14 @@ class Test_DDIMSampler(DDIMSampler):
                     weight_L2 = conf["optimize_xt.weight_L2"],
                     weight_LPIPS=conf["optimize_xt.weight_LPIPS"],
                     weight_SSIM=conf["optimize_xt.weight_SSIM"],
+                    grad_previous = grad_previous,
                 )
                 if conf["overwrite"]:
                     x_t = output["x_prev_overwrite"]
                 else:
                     x_t = output["x_prev"]
                 loss = output["loss"]
-
+                grad_previous = output["grad_previous"]
                 # lr decay
                 if self.lr_xt_decay != 1.0:
                     logging_info(
