@@ -1606,6 +1606,7 @@ class Test_DDIMSampler(DDIMSampler):
                 del loss, x_grad_L2, x_grad_LPIPS, x_grad_SSIM
                 torch.cuda.empty_cache()
 
+
         # after optimize
         with torch.no_grad():
             new_loss = (a * self.loss_L2(x0, pred_x0, mask) + b * self.loss_LPIPS(x0, pred_x0, mask) + c * self.loss_SSIM(x0, pred_x0, mask)).item()
