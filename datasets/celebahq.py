@@ -94,13 +94,13 @@ def load_lama_celebahq(
 
 def load_test(
     offset=0,
-    max_len=100,
+    max_len=16,
     shape=(256, 256),
     mask_type="half",
 ):
     """Load first 100 images in lama celeba test set"""
     gt_dir = os.path.join(
-        os.getcwd(), "./datasets/test/")
+        os.getcwd(), "./datasets/test_celeba/")
     gt_paths = _list_image_files_recursively(gt_dir)
     gt_paths.sort()
 

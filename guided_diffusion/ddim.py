@@ -1524,7 +1524,7 @@ class Test_DDIMSampler(DDIMSampler):
             b=weight_LPIPS
             c=weight_SSIM
             prev_loss = a * self.loss_L2(x0, pred_x0, mask) + b * self.loss_LPIPS(x0, pred_x0, mask) + c * self.loss_SSIM(x0, pred_x0, mask)
-            directory = '/mnt/data/huang-lab/shipeng/celeb/lpips/half/reverse/pred' + str(model_kwargs["image_name"])
+            directory = '/mnt/data/huang-lab/shipeng/celeb/momentum/test/reverse/pred' + str(model_kwargs["image_name"])
             make_dirs(directory)
             tmp_pred = pred_x0
             tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
@@ -1534,7 +1534,7 @@ class Test_DDIMSampler(DDIMSampler):
             tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
             full_p2 = os.path.join(directory, 'pre' + '_' + str(index).zfill(6) + '.jpg')
             tmp_pred.save(full_p2)
-            directory = '/mnt/data/huang-lab/shipeng/celeb/lpips/half/reverse/x' + str(model_kwargs["image_name"])
+            directory = '/mnt/data/huang-lab/shipeng/celeb/momentum/test/reverse/x' + str(model_kwargs["image_name"])
             make_dirs(directory)
             tmp_pred = origin_x
             tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
@@ -1546,6 +1546,7 @@ class Test_DDIMSampler(DDIMSampler):
             tmp_pred.save(full_p2)
             logging_info(f"step: {t[0].item()} lr_xt {lr_xt:.8f}")
             grad_pre_total = torch.zeros_like(x)
+            
             for grad_tmp in grad_previous:
                 grad_pre_total += grad_tmp / len(grad_previous)
             for step in range(self.num_iteration_optimize_xt):
@@ -1567,7 +1568,7 @@ class Test_DDIMSampler(DDIMSampler):
                     loss_SSIM, x, retain_graph=False, create_graph=False
                 )[0].detach()
                 x_grad_L2, x_grad_LPIPS, x_grad_SSIM = grad_norm(L2=x_grad_L2, LPIPS=x_grad_LPIPS, SSIM=x_grad_SSIM)
-                new_x = x - lr_xt * ((x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P) * 0.5 + grad_pre_total * 0.5)
+                new_x = x - lr_xt * ((x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P) * (mask + 0.8 * (1 - mask)) + grad_pre_total * 0.1 * (1 - mask))
 
                 logging_info(
                     f"grad norm: {torch.norm(x_grad_L2, p=2).item():.3f} "
@@ -1591,7 +1592,7 @@ class Test_DDIMSampler(DDIMSampler):
                                 % (loss.item(), new_loss.item(), lr_xt)
                             )
                             del new_x, e_t, pred_x0, new_loss
-                            new_x = x - lr_xt * ((x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P) + grad_pre_total * 0.5)
+                            new_x = x - lr_xt * ((x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P) * (mask + 0.8 * (1 - mask)) + grad_pre_total * 0.1 * (1-mask))
 
                 x = new_x.detach().requires_grad_()
                 e_t = get_et(x, _t=t)
@@ -1600,7 +1601,7 @@ class Test_DDIMSampler(DDIMSampler):
                 )
                 if step == self.num_iteration_optimize_xt - 1:
                     if grad_previous_max == len(grad_previous):
-                        grad_previous.remove()
+                        grad_previous.pop()
                     if grad_previous_max != 0:
                         grad_previous.append(x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c + x_grad_P)
                 del loss, x_grad_L2, x_grad_LPIPS, x_grad_SSIM
