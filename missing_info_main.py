@@ -229,22 +229,48 @@ def main():
             clip = 7
             nbrs = NearestNeighbors(n_neighbors=n_neighbors, algorithm='kd_tree').fit(white_pixels)
             distances, indices = nbrs.kneighbors(black_pixels)
-
             # # 计算每个黑色像素的十个最近邻白色像素的欧式距离之和
             # total_distance = np.sum(np.sum(distances, axis=1))/255/255/100
-
             # 计算每个黑色像素的十个最近邻白色像素的欧式距离的倒数的平方
             inverse_distances_squared = 1 / (distances ** power)
             # print(inverse_distances_squared)
             a = np.clip(np.sum(inverse_distances_squared, axis=1), 0, clip)
-            total_inverse_distance_squared = np.sum(np.clip(np.sum(inverse_distances_squared, axis=1), 0, clip))
+            total_inverse_distance_squared = np.sum(a)
             lost_info = (clip * black_pixel_count - total_inverse_distance_squared) / 255 / 255 / clip * 100
             float_mask = np.zeros_like(mask, dtype=np.float32)
-            float_mask[black_pixels[:, 0], black_pixels[:, 1]] = a
+            float_mask[black_pixels[:, 0], black_pixels[:, 1]] = a / clip
             float_mask = torch.from_numpy(float_mask).to(device).repeat(1,1,1,1)
-            model_kwargs["weight_mask"] = float_mask
+            model_kwargs["weight_mask_known"] = float_mask
             model_kwargs["lost_info"] = lost_info * 0.01
             model_kwargs["known_info"] = 1 - lost_info * 0.01
+
+            #计算mask的missing information
+            White = 0
+            white_pixel_count = np.sum(mask == 255 if White == 255 else mask == 0)
+            black_pixel_count = np.sum(mask == 0 if White == 255 else mask == 255)
+            # 找到黑色像素的位置
+            black_pixels = np.argwhere(mask == 0 if White == 255 else mask == 255)
+            # 找到白色像素的位置
+            white_pixels = np.argwhere(mask == 255 if White == 255 else mask == 0)
+            # 使用sklearn的NearestNeighbors找到每个黑色像素十个最近邻白色像素
+            n_neighbors = 10
+            power = 1
+            clip = 7
+            nbrs = NearestNeighbors(n_neighbors=n_neighbors, algorithm='kd_tree').fit(white_pixels)
+            distances, indices = nbrs.kneighbors(black_pixels)
+            # # 计算每个黑色像素的十个最近邻白色像素的欧式距离之和
+            # total_distance = np.sum(np.sum(distances, axis=1))/255/255/100
+            # 计算每个黑色像素的十个最近邻白色像素的欧式距离的倒数的平方
+            inverse_distances_squared = 1 / (distances ** power)
+            # print(inverse_distances_squared)
+            a = np.clip(np.sum(inverse_distances_squared, axis=1), 0, clip)
+            total_inverse_distance_squared = np.sum(a)
+            lost_info = (clip * black_pixel_count - total_inverse_distance_squared) / 255 / 255 / clip * 100
+            float_mask = np.zeros_like(mask, dtype=np.float32)
+            float_mask[black_pixels[:, 0], black_pixels[:, 1]] = a / clip
+            float_mask *= 256 * 256 / float_mask.sum()
+            float_mask = torch.from_numpy(float_mask).to(device).repeat(1, 1, 1, 1)
+            model_kwargs["weight_mask_unknown"] = float_mask
             print(lost_info)
         if config.class_cond:
             if config.cond_y is not None:

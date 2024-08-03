@@ -23,7 +23,7 @@ resume: false # will load previous results if there are some
 mode: inpaint
 scale: 0
 debug: false
-missing_info: false
+missing_info: true
 device: 0
 loss: LPIPS
 overwrite: false

@@ -1547,8 +1547,8 @@ class Test_DDIMSampler(DDIMSampler):
             logging_info(f"step: {t[0].item()} lr_xt {lr_xt:.8f}")
             grad_pre_total = torch.zeros_like(x)
             alpha = 1
-            if index > 175:
-                alpha = 0.5
+            # if index > 175:
+            #     alpha = 0.5
             for grad_tmp in grad_previous:
                 grad_pre_total += grad_tmp / len(grad_previous)
             for step in range(self.num_iteration_optimize_xt):
@@ -1562,7 +1562,7 @@ class Test_DDIMSampler(DDIMSampler):
                 )[0].detach()
                 x_grad_L2 = torch.autograd.grad(
                     loss_L2, x, retain_graph=True, create_graph=False
-                )[0].detach()
+                )[0].detach() * model_kwargs["weight_mask_unknown"]
                 x_grad_LPIPS = torch.autograd.grad(
                     loss_LPIPS, x, retain_graph=True, create_graph=False
                 )[0].detach()
