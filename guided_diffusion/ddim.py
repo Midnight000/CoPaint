@@ -1340,6 +1340,7 @@ class Test_DDIMSampler(DDIMSampler):
         weight_SSIM=0,
         grad_previous=None,
         grad_previous_max=3,
+        sample_dir="",
         **kwargs,
     ):
         if self.mode == "inpaint":
@@ -1524,7 +1525,7 @@ class Test_DDIMSampler(DDIMSampler):
             b=weight_LPIPS
             c=weight_SSIM
             prev_loss = a * self.loss_L2(x0, pred_x0, mask) + b * self.loss_LPIPS(x0, pred_x0, mask) + c * self.loss_SSIM(x0, pred_x0, mask)
-            directory = '/mnt/data/huang-lab/shipeng/celeb/momentum/test/reverse/pred' + str(model_kwargs["image_name"])
+            directory = model_kwargs["outdir"] + '/reverse/pred' + str(model_kwargs["image_name"])
             make_dirs(directory)
             tmp_pred = pred_x0
             tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
@@ -1534,7 +1535,7 @@ class Test_DDIMSampler(DDIMSampler):
             tmp_pred = Image.fromarray(tmp_pred, mode='RGB')
             full_p2 = os.path.join(directory, 'pre' + '_' + str(index).zfill(6) + '.jpg')
             tmp_pred.save(full_p2)
-            directory = '/mnt/data/huang-lab/shipeng/celeb/momentum/test/reverse/x' + str(model_kwargs["image_name"])
+            directory = model_kwargs["outdir"] + '/reverse/x' + str(model_kwargs["image_name"])
             make_dirs(directory)
             tmp_pred = origin_x
             tmp_pred = ((tmp_pred + 1) * 127.5).clamp(0, 255).to(torch.uint8)
@@ -1556,26 +1557,19 @@ class Test_DDIMSampler(DDIMSampler):
                 loss_LPIPS = self.loss_LPIPS(x0, pred_x0, mask)
                 loss_SSIM = self.loss_SSIM(x0, pred_x0, mask)
                 loss_P = coef_xt_reg * reg_fn(origin_x, x)
-                loss = a * loss_L2 + b * loss_LPIPS + c * loss_SSIM + loss_P
+                loss = a * loss_L2 + loss_P
                 x_grad_P = torch.autograd.grad(
                     loss_P, x, retain_graph=True, create_graph=False
                 )[0].detach()
                 x_grad_L2 = torch.autograd.grad(
-                    loss_L2, x, retain_graph=True, create_graph=False
+                    loss_L2, x, retain_graph=False, create_graph=False
                 )[0].detach() * model_kwargs["weight_mask_unknown"]
-                x_grad_LPIPS = torch.autograd.grad(
-                    loss_LPIPS, x, retain_graph=True, create_graph=False
-                )[0].detach()
-                x_grad_SSIM = torch.autograd.grad(
-                    loss_SSIM, x, retain_graph=False, create_graph=False
-                )[0].detach()
-                x_grad_L2, x_grad_LPIPS, x_grad_SSIM = grad_norm(L2=x_grad_L2, LPIPS=x_grad_LPIPS, SSIM=x_grad_SSIM)
-                new_x = x - lr_xt * ((x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c) * (mask + alpha * (1 - mask)) + grad_pre_total * (1-alpha) * (1 - mask) + x_grad_P)
+                new_x = x - lr_xt * (x_grad_L2 * a + x_grad_P)
 
                 logging_info(
                     f"grad norm: {torch.norm(x_grad_L2, p=2).item():.3f} "
-                    f"{torch.norm(x_grad_LPIPS, p=2).item():.3f} "
-                    f"{torch.norm(x_grad_SSIM, p=2).item():.3f}"
+                    f"{torch.norm(x_grad_L2 * mask, p=2).item():.3f} "
+                    f"{torch.norm(x_grad_L2 * (1. - mask), p=2).item():.3f}"
                 )
 
                 while self.use_adaptive_lr_xt and True:
@@ -1584,7 +1578,7 @@ class Test_DDIMSampler(DDIMSampler):
                         pred_x0 = get_predx0(
                             new_x, _t=t, _et=e_t, interval_num=self.mid_interval_num
                         )
-                        new_loss = a * self.loss_L2(x0, pred_x0, mask) + b * self.loss_LPIPS(x0, pred_x0, mask) + c * self.loss_SSIM(x0, pred_x0, mask) + coef_xt_reg * reg_fn(origin_x, new_x)
+                        new_loss = a * self.loss_L2(x0, pred_x0, mask) + coef_xt_reg * reg_fn(origin_x, new_x)
                         if not torch.isnan(new_loss) and new_loss <= loss:
                             break
                         else:
@@ -1594,7 +1588,7 @@ class Test_DDIMSampler(DDIMSampler):
                                 % (loss.item(), new_loss.item(), lr_xt)
                             )
                             del new_x, e_t, pred_x0, new_loss
-                            new_x = x - lr_xt * ((x_grad_L2 * a + x_grad_LPIPS * b + x_grad_SSIM * c) * (mask + alpha * (1 - mask)) + grad_pre_total * (1 - alpha) * (1 - mask) + x_grad_P)
+                            new_x = x - lr_xt * (x_grad_L2 * a + x_grad_P)
                 x = new_x.detach().requires_grad_()
                 e_t = get_et(x, _t=t)
                 pred_x0 = get_predx0(
@@ -1605,7 +1599,7 @@ class Test_DDIMSampler(DDIMSampler):
                         grad_previous.pop()
                     if grad_previous_max != 0:
                         grad_previous.append(x_grad_L2)
-                del loss, x_grad_L2, x_grad_LPIPS, x_grad_SSIM, x_grad_P
+                del loss, x_grad_L2, x_grad_P
                 torch.cuda.empty_cache()
 
 
@@ -1671,6 +1665,7 @@ class Test_DDIMSampler(DDIMSampler):
                         pred_xstart=None,
                         lr_xt=self.lr_xt,
                         coef_xt_reg=self.coef_xt_reg,
+                        sample_dir=sample_dir,
                     )["loss"]
                 )
             img = img[torch.argsort(torch.tensor(xT_losses))[: shape[0]]]

@@ -210,6 +210,7 @@ def main():
             "image_name":image_name,
             "gt": batch["image"].repeat(batch_size, 1, 1, 1),
             "gt_keep_mask": batch["mask"].repeat(batch_size, 1, 1, 1),
+            "outdir": config.outdir,
         }
         if config.missing_info:
             mask = model_kwargs["gt_keep_mask"]
