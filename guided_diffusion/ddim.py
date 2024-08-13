@@ -1309,8 +1309,8 @@ class Test_DDIMSampler(DDIMSampler):
         self.scale = conf.get("scale", 0)
         self.loss = conf.get("loss", "L2")
 
-        def loss_L2(_x0, _pred_x0, _mask):
-            ret = torch.sum((_x0 * _mask - _pred_x0 * _mask) ** 2)
+        def loss_L2(_x0, _pred_x0, _mask, matrix):
+            ret = torch.sum((_x0 * _mask - _pred_x0 * _mask) ** 2 * matrix)
             return ret
         LPIPS_func = lpips.LPIPS(net="alex").to(conf.get("device"))
         def loss_LPIPS(_x0, _pred_x0, _mask):
@@ -1458,16 +1458,13 @@ class Test_DDIMSampler(DDIMSampler):
             alpha_prev = _extract_into_tensor(
                 self.alphas_cumprod, _prev_t, _x.shape)
             sigmas = (
-                torch.sqrt(1 * (1 - alpha_prev))
+                torch.sqrt(model_kwargs["known_info"] * (1 - alpha_prev))
             )
-            # sigmas = (
-            #     torch.sqrt(model_kwargs["known_info"] * (1 - alpha_prev))
-            # )
-            sigmas = (
-                self.ddim_sigma
-                * torch.sqrt((1 - alpha_prev) / (1 - alpha_t))
-                * torch.sqrt((1 - alpha_t / alpha_prev))
-            )
+            #sigmas = (
+            #    self.ddim_sigma
+            #    * torch.sqrt((1 - alpha_prev) / (1 - alpha_t))
+            #    * torch.sqrt((1 - alpha_t / alpha_prev))
+            #)
             mean_pred = (
                 _pred_x0 * torch.sqrt(alpha_prev)
                 + torch.sqrt(1 - alpha_prev - sigmas**2) * _et  # dir_xt
@@ -1524,7 +1521,7 @@ class Test_DDIMSampler(DDIMSampler):
             a=weight_L2
             b=weight_LPIPS
             c=weight_SSIM
-            prev_loss = a * self.loss_L2(x0, pred_x0, mask) + b * self.loss_LPIPS(x0, pred_x0, mask) + c * self.loss_SSIM(x0, pred_x0, mask)
+            prev_loss = a * self.loss_L2(x0, pred_x0, mask, model_kwargs["weight_mask_unknown"])
             directory = model_kwargs["outdir"] + '/reverse/pred' + str(model_kwargs["image_name"])
             make_dirs(directory)
             tmp_pred = pred_x0
@@ -1553,7 +1550,8 @@ class Test_DDIMSampler(DDIMSampler):
             for grad_tmp in grad_previous:
                 grad_pre_total += grad_tmp / len(grad_previous)
             for step in range(self.num_iteration_optimize_xt):
-                loss_L2 = self.loss_L2(x0, pred_x0, mask)
+                #loss_L2 = self.loss_L2(x0, pred_x0, mask, model_kwargs["weight_mask_unknown"])
+                loss_L2 = self.loss_L2(x0, pred_x0, mask, (model_kwargs["weight_mask_unknown"] * index / 249 + torch.ones_like(model_kwargs["weight_mask_unknown"]) * (249 - index) / 249 ))
                 loss_LPIPS = self.loss_LPIPS(x0, pred_x0, mask)
                 loss_SSIM = self.loss_SSIM(x0, pred_x0, mask)
                 loss_P = coef_xt_reg * reg_fn(origin_x, x)
@@ -1563,7 +1561,7 @@ class Test_DDIMSampler(DDIMSampler):
                 )[0].detach()
                 x_grad_L2 = torch.autograd.grad(
                     loss_L2, x, retain_graph=False, create_graph=False
-                )[0].detach() * model_kwargs["weight_mask_unknown"]
+                )[0].detach()
                 new_x = x - lr_xt * (x_grad_L2 * a + x_grad_P)
 
                 logging_info(
@@ -1578,7 +1576,8 @@ class Test_DDIMSampler(DDIMSampler):
                         pred_x0 = get_predx0(
                             new_x, _t=t, _et=e_t, interval_num=self.mid_interval_num
                         )
-                        new_loss = a * self.loss_L2(x0, pred_x0, mask) + coef_xt_reg * reg_fn(origin_x, new_x)
+                        #new_loss = a * self.loss_L2(x0, pred_x0, mask, model_kwargs["weight_mask_unknown"]) + coef_xt_reg * reg_fn(origin_x, new_x)
+                        new_loss = a * self.loss_L2(x0, pred_x0, mask, (model_kwargs["weight_mask_unknown"] * index / 249 + torch.ones_like(model_kwargs["weight_mask_unknown"]) * (249 - index) / 249 )) + coef_xt_reg * reg_fn(origin_x, new_x)
                         if not torch.isnan(new_loss) and new_loss <= loss:
                             break
                         else:
@@ -1605,7 +1604,7 @@ class Test_DDIMSampler(DDIMSampler):
 
         # after optimize
         with torch.no_grad():
-            new_loss = (a * self.loss_L2(x0, pred_x0, mask) + b * self.loss_LPIPS(x0, pred_x0, mask) + c * self.loss_SSIM(x0, pred_x0, mask)).item()
+            new_loss = (a * self.loss_L2(x0, pred_x0, mask, model_kwargs["weight_mask_unknown"])).item()
             logging_info("Loss Change: %.3lf -> %.3lf" % (prev_loss, new_loss))
             new_reg = reg_fn(origin_x, new_x).item()
             logging_info("Regularization Change: %.3lf -> %.3lf" % (0, new_reg))
